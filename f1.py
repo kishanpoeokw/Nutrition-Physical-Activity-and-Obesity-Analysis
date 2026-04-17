@@ -5,210 +5,199 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score
 from scipy.stats import ttest_ind
 
 # ===========================
 # 2. LOAD DATA
 # ===========================
-df = pd.read_csv(
-    "Crimes_-_2001_to_Present.csv",
-    on_bad_lines='skip',
-    low_memory=False
-)
-
-print("First 5 rows:\n", df.head())
+df = pd.read_csv("Nutrition__Physical_Activity__and_Obesity.csv", low_memory=False)
 
 # ===========================
-# 3. EDA
+# 3. EDA + CLEANING
 # ===========================
-print("\nShape:", df.shape)
-print("\nColumns:", df.columns)
 
-print("\nInfo:")
+print("\n===== FIRST 5 ROWS =====")
+print(df.head())
+
+print("\n===== SHAPE OF DATA =====")
+print(df.shape)
+
+print("\n===== COLUMN NAMES =====")
+print(df.columns)
+
+print("\n===== DATA INFO =====")
 df.info()
 
-print("\nDescription:")
+print("\n===== STATISTICAL SUMMARY =====")
 print(df.describe())
 
-print("\nMissing Values:")
+print("\n===== MISSING VALUES =====")
+
 print(df.isnull().sum())
 
-# ===========================
-# 4. FEATURE ENGINEERING
-# ===========================
-df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-df = df.dropna(subset=['Date'])
 
-df['Year'] = df['Date'].dt.year
-df['Hour'] = df['Date'].dt.hour
+df = df.dropna(subset=['Data_Value', 'Sample_Size'])
 
+print("\n===== SHAPE AFTER CLEANING =====")
+
+print(df.shape)
 # ===========================
-# 5. CONTINUOUS DISTRIBUTION
+# 4. OUTLIER VISUALIZATION
 # ===========================
-plt.figure(figsize=(10,5))
 
-sns.histplot(
-    df['Hour'],
-    bins=24,
-    kde=True,
-    stat="density"
-)
-
-plt.title("Continuous Distribution of Crime Occurrence Over Hours", fontsize=14)
-plt.xlabel("Hour of the Day (0–23)")
-plt.ylabel("Density")
+# Histogram
+plt.figure(figsize=(8,5))
+sns.histplot(df['Data_Value'], kde=True)
+plt.title("Histogram of Data Values\nObjective: Understand distribution of Data_Value")
+plt.xlabel("Data Value")
+plt.ylabel("Frequency")
 plt.grid(alpha=0.3)
 plt.show()
 
-skewness = df['Hour'].skew()
-print("Skewness:", skewness)
-
-if skewness == 0:
-    print("Normal Data → Z-score")
-else:
-    print("Skewed Data → IQR Method")
+# Boxplot
+plt.figure(figsize=(6,8))
+sns.boxplot(y=df['Data_Value'])
+plt.title("Boxplot of Data Value\nObjective: Detect outliers in Data_Value")
+plt.ylabel("Data Value")
+plt.grid(alpha=0.3)
+plt.show()
 
 # ===========================
-# 6. OUTLIER DETECTION (IQR)
+# 5. OUTLIER DETECTION (IQR)
 # ===========================
-Q1 = df['Hour'].quantile(0.25)
-Q3 = df['Hour'].quantile(0.75)
+Q1 = df['Data_Value'].quantile(0.25)
+Q3 = df['Data_Value'].quantile(0.75)
 IQR = Q3 - Q1
 
 lower = Q1 - 1.5 * IQR
 upper = Q3 + 1.5 * IQR
 
-outliers = df[(df['Hour'] < lower) | (df['Hour'] > upper)]
-print("Outliers count:", len(outliers))
+df_clean = df[(df['Data_Value'] >= lower) & (df['Data_Value'] <= upper)]
 
-df_clean = df.copy()
-
+print("After outlier removal:", df_clean.shape)
 # ===========================
-# 7. PAIR PLOT
+# 6. PAIR PLOT
 # ===========================
-sns.pairplot(df_clean[['Year', 'Hour']])
+sns.pairplot(df_clean[['Data_Value', 'Sample_Size']])
+plt.suptitle("Pair Plot\nObjective: Visualize relationships between variables", y=1.02)
 plt.show()
 
 # ===========================
-# OBJECTIVE 1
+# OBJECTIVE 1 (COUNT PLOT)
 # ===========================
-# Analyze crime trend over time
-plt.figure(figsize=(12,5))
-sns.countplot(x='Year', data=df_clean)
-plt.xticks(rotation=45)
-plt.title("Year-wise Distribution of Crime Incidents", fontsize=14)
+# Objective:
+# To analyze how the number of records varies across different years.
+# This helps in understanding the distribution of data over time.
+# It also shows trends or changes in reporting across years.
+
+plt.figure(figsize=(10,5))
+sns.countplot(x=df_clean['YearStart'])
+plt.title("Count Plot of Records by Year\nObjective: Analyze distribution of records over years")
 plt.xlabel("Year")
-plt.ylabel("Number of Crimes")
-plt.show()
-
-# ===========================
-# OBJECTIVE 2
-# ===========================
-# Most frequent crime types
-plt.figure(figsize=(12,5))
-df_clean['Primary Type'].value_counts().head(10).plot(kind='bar')
-plt.title("Top 10 Most Frequent Crime Types", fontsize=14)
-plt.xlabel("Crime Type")
-plt.ylabel("Frequency")
+plt.ylabel("Count")
 plt.xticks(rotation=45)
 plt.show()
 
 # ===========================
-# OBJECTIVE 3
+# OBJECTIVE 2 (SCATTER PLOT)
 # ===========================
-# Crime by location
-plt.figure(figsize=(12,6))
-sns.countplot(
-    y='Location Description',
-    data=df_clean,
-    order=df_clean['Location Description'].value_counts().iloc[:10].index
-)
-plt.title("Top 10 Locations with Highest Crime Occurrence", fontsize=14)
-plt.xlabel("Number of Crimes")
-plt.ylabel("Location")
-plt.show()
-
-# ===========================
-# OBJECTIVE 4 (UPDATED SCATTER)
-# ===========================
-# Relationship between time and crime occurrence
+# Objective:
+# To examine the relationship between Data_Value and Sample_Size.
+# This helps in identifying whether both variables are related.
+# It shows how changes in one variable affect the other.
 
 plt.figure(figsize=(8,5))
-plt.scatter(df_clean['Year'], df_clean['Hour'], alpha=0.3)
-
-plt.title("Scatter Plot of Crime Occurrence (Year vs Hour)", fontsize=14)
-plt.xlabel("Year")
-plt.ylabel("Hour of Crime")
+plt.scatter(df_clean['Data_Value'], df_clean['Sample_Size'], alpha=0.5)
+plt.title("Scatter Plot: Data_Value vs Sample_Size\nObjective: Study relationship between variables")
+plt.xlabel("Data Value")
+plt.ylabel("Sample Size")
 plt.grid(alpha=0.3)
+plt.show()
+
+# ===========================
+# OBJECTIVE 3 (HORIZONTAL BAR CHART)
+# ===========================
+# Objective:
+# To identify the top locations with the highest number of records.
+# This helps in finding which locations have more data or activity.
+# It highlights areas with higher contribution in the dataset.
+
+top_states = df_clean['LocationDesc'].value_counts().head(10)
+
+plt.figure(figsize=(10,6))
+sns.barplot(y=top_states.index, x=top_states.values)
+
+plt.title("Bar Chart: Top 10 Locations\nObjective: Identify locations with highest records")
+plt.xlabel("Count")
+plt.ylabel("Location")
 
 plt.show()
 
 # ===========================
-# OBJECTIVE 5 (PIE CHART)
+# OBJECTIVE 4 (PIE CHART)
 # ===========================
-# Proportion of arrests
+# Objective:
+# To analyze the proportion of top locations in percentage.
+# This helps in comparing the relative contribution of each location.
+# It gives a quick overview of distribution among top categories.
 
-arrest_counts = df_clean['Arrest'].value_counts()
+top5 = df_clean['LocationDesc'].value_counts().head(5)
 
 plt.figure(figsize=(6,6))
-plt.pie(
-    arrest_counts,
-    labels=arrest_counts.index,
-    autopct='%1.1f%%',
-    startangle=90
-)
+plt.pie(top5, labels=top5.index, autopct='%1.1f%%')
 
-plt.title("Proportion of Crimes Resulting in Arrests", fontsize=14)
+plt.title("Pie Chart: Top 5 Locations Distribution\nObjective: Compare proportion of top locations")
+
 plt.show()
 
 # ===========================
-# CORRELATION (IMPROVED)
+# OBJECTIVE 5 (CORRELATION)
 # ===========================
-num_df = df_clean.select_dtypes(include=['int64','float64'])
+# Objective:
+# To analyze the relationship between numerical variables.
+# This helps in understanding how strongly variables are related.
+# It shows positive or negative relationships between features.
 
+num_df = df_clean[['Data_Value', 'Sample_Size']]
 corr = num_df.corr()
 
-plt.figure(figsize=(8,6))
-sns.heatmap(corr, annot=True, cmap='coolwarm', linewidths=0.5)
-
-plt.title("Correlation Matrix of Numerical Features", fontsize=14)
-plt.show()
-
-# ===========================
-# LINEAR REGRESSION
-# ===========================
-crime_count = df_clean.groupby(['Year', 'Hour']).size().reset_index(name='Crime_Count')
-
-X = crime_count[['Year', 'Hour']]
-y = crime_count['Crime_Count']
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-model = LinearRegression()
-model.fit(X_train, y_train)
-
-y_pred = model.predict(X_test)
-
-print("MSE:", mean_squared_error(y_test, y_pred))
-print("R2 Score:", r2_score(y_test, y_pred))
-
 plt.figure(figsize=(6,5))
-plt.scatter(y_test, y_pred)
-plt.title("Actual vs Predicted Crime Count (Linear Regression)", fontsize=14)
-plt.xlabel("Actual")
-plt.ylabel("Predicted")
-plt.grid(alpha=0.5)
+sns.heatmap(corr, annot=True, cmap='coolwarm')
+
+plt.title("Heatmap: Correlation Matrix\nObjective: Analyze relationships between numerical variables")
+
 plt.show()
 
 # ===========================
-# HYPOTHESIS TEST
+# LINE CHART (TREND ANALYSIS)
 # ===========================
-group1 = df_clean[df_clean['Arrest'] == True]['Hour']
-group2 = df_clean[df_clean['Arrest'] == False]['Hour']
+# Objective:
+# To analyze the trend of Data_Value over different years.
+# This helps in identifying patterns such as increase or decrease over time.
+# It provides a clear view of changes in data across years.
+
+year_data = df_clean.groupby('YearStart')['Data_Value'].mean()
+
+plt.figure(figsize=(10,5))
+plt.plot(year_data.index, year_data.values, marker='o')
+
+plt.title("Line Chart: Data_Value Trend Over Years\nObjective: Analyze trend over time")
+plt.xlabel("Year")
+plt.ylabel("Average Data Value")
+
+plt.grid(alpha=0.3)
+plt.show()
+
+# ===========================
+# 7. HYPOTHESIS TEST
+# ===========================
+# Objective:
+# To test whether there is a significant difference between Data_Value and Sample_Size.
+# This helps in validating if the observed differences are meaningful.
+# It uses statistical testing to support data analysis conclusions.
+
+group1 = df_clean['Data_Value']
+group2 = df_clean['Sample_Size']
 
 t_stat, p_value = ttest_ind(group1, group2)
 
